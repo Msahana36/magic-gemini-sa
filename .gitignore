@@ -10,3 +10,4 @@ gemini_generated_code.py
 .venv
 .vir/
 .vir
+logs/

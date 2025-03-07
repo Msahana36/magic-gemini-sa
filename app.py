@@ -6,6 +6,7 @@ from datetime import datetime
 
 from flask import Flask, request, send_file
 from flask_cors import CORS
+import re
 import matplotlib
 matplotlib.use('Agg')
 from execute_gen_code import execute_code
@@ -16,6 +17,10 @@ CORS(app)
 
 MAX_GEN_RETRY=3
 
+def generate_seed(prompt):
+    """Creates a filename-friendly seed from the prompt."""
+    cleaned_prompt = re.sub(r'\W+', '_', prompt.lower()).strip('_')
+    return cleaned_prompt[:50]
 
 
 @app.route('/gencode/', methods=['GET', 'POST'])
@@ -26,7 +31,8 @@ def prompt_process():
     reponse_type = 'text'
     success_run=False
 
-    seed=datetime.now().strftime("%Y%m%d-%H%M%S-%f")
+    #seed=datetime.now().strftime("%Y%m%d-%H%M%S-%f")
+    seed = generate_seed(sql_prompt) if sql_prompt else datetime.now().strftime("%Y%m%d-%H%M%S-%f")
     print (f'seed generated================ {seed}')
     #seed=100
     if (not reponse_type): reponse_type='text'
@@ -62,7 +68,8 @@ def prompt_process():
 
             else:
                 #Read from gencode.log and return
-                file_path=f'gencode_{seed}.log'
+                #file_path=f'gencode_{seed}.log'
+                file_path=f'logs/gencode_{seed}.log'
                 print(f'Sending back contents of file {file_path}')
                 return readfile.read_file_content(file_path)
         else:

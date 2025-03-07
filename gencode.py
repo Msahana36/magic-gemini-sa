@@ -1,18 +1,46 @@
 import google.generativeai as genai
 import os
-import utility
+
+safety_settings = [
+    {
+        "category": "HARM_CATEGORY_DANGEROUS",
+        "threshold": "BLOCK_NONE",
+    },
+    {
+        "category": "HARM_CATEGORY_HARASSMENT",
+        "threshold": "BLOCK_NONE",
+    },
+    {
+        "category": "HARM_CATEGORY_HATE_SPEECH",
+        "threshold": "BLOCK_NONE",
+    },
+    {
+        "category": "HARM_CATEGORY_SEXUALLY_EXPLICIT",
+        "threshold": "BLOCK_NONE",
+    },
+    {
+        "category": "HARM_CATEGORY_DANGEROUS_CONTENT",
+        "threshold": "BLOCK_NONE",
+    },
+]
 
 
-def parse_triple_quotes(in_str, parse_str):
-# Parse out the string after ```sql and before ```
-  # Using Python's string manipulation methods to extract the SQL query
-  #start = in_str.find("```python") + len("```python\n")  # Start after ```sql and the newline
-  start = in_str.find(parse_str) + len(parse_str+"\n")
-  end = in_str.rfind("```")  # Find the last occurrence of ```
-  out_str = in_str[start:end].strip()  # Extract the SQL query and strip leading/trailing whitespace
-  print(f'OUTPUT STRING\n{out_str}')
-  return out_str
+def parse_triple_quotes(in_str, parse_str="```python"):
+    """Extracts code from triple backticks without using regex."""
+    
+    # Split the input by parse_str
+    parts = in_str.split(parse_str)
+    if len(parts) < 2:
+        print(f"Error: '{parse_str}' not found in input string.")
+        return ""
 
+    # Extract the part after "```python"
+    code_part = parts[1]
+
+    # Further split by closing triple backticks
+    code_part = code_part.split("```")[0]
+
+    return code_part.strip()
 
 
 
@@ -70,6 +98,9 @@ def nl_python_gemini(user_prompt, seed):
         
             Only use the output of your code to answer the question.
             You might know the answer without running any code, but you should still run the code to get the answer.Use this to chat with the user regarding customer survey data.
+            Saves logs inside a **'logs/' directory** (create it if it doesn't exist).
+            Before reading the log file, add a **0.5-second delay** to ensure the file is available.
+            Always return the complete summary when user asks for overall view rather than the steps included for generating the summary.
             Wrap the generated code in a function named  generated_code(), create a file  named gemini_generated_code.py and put the function along with code in that file. Do not call the function.
             Call the generated_code function. do not use if __name__ == "__main__"
             
@@ -83,15 +114,21 @@ def nl_python_gemini(user_prompt, seed):
     models = genai.GenerativeModel('gemini-1.5-pro')
     response = models.generate_content(   prompt + "\n\n Generate python code for : " + user_prompt,
                                           generation_config=genai.types.GenerationConfig(temperature=0.0)
-                                      )
+                                      , safety_settings = safety_settings)
     generated_code = response.text
   ####
     #print(f'GENERATED CODE >>>\n {generated_code}')
-    if ( generated_code.find("```python") != -1   ) :
-        generated_code=parse_triple_quotes(generated_code,"```python")
-    else:
-        if ( generated_code.find("```") != -1   ) :
-            generated_code=parse_triple_quotes(generated_code,"```")
+    # if ( generated_code.find("```python") != -1   ) :
+    #     generated_code=parse_triple_quotes(generated_code,"```python")
+    # else:
+    #     if ( generated_code.find("```") != -1   ) :
+    #         generated_code=parse_triple_quotes(generated_code,"```")
+
+    if "```python" in generated_code:
+      generated_code = parse_triple_quotes(generated_code, "```python")
+    elif "```" in generated_code:
+      generated_code = parse_triple_quotes(generated_code, "```")
+
     
     #print(f'Cleaned up code >>>>>>>>>>>>>>>>>>> \n{generated_code}')
     
