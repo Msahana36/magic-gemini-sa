@@ -1,0 +1,12 @@
+env/
+__pycache__/
+.github/
+*.log
+*.png
+gemini_generated_code.py
+.env/
+.env
+.venv/
+.venv
+.vir/
+.vir

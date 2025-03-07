@@ -1,0 +1,11 @@
+Show me all the feedback that were positive
+What percentage of feedback where negative
+Show me all the feedback that were negative
+
+show me the number of customers with positive and negative sentiment   by state in a tabular format
+Summarize the feedback column
+
+graphs
+
+show me a a pie chart of number of respondents from different states
+Based on the response to question "How satisfied were you with the speed of claim processing" - plot that figure in a bar chart
