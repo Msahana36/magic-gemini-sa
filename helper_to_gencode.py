@@ -1,40 +1,38 @@
 import os
-import google.generativeai as genai
+import anthropic
 import pandas as pd
-safety_settings = [
-    {
-        "category": "HARM_CATEGORY_DANGEROUS",
-        "threshold": "BLOCK_NONE",
-    },
-    {
-        "category": "HARM_CATEGORY_HARASSMENT",
-        "threshold": "BLOCK_NONE",
-    },
-    {
-        "category": "HARM_CATEGORY_HATE_SPEECH",
-        "threshold": "BLOCK_NONE",
-    },
-    {
-        "category": "HARM_CATEGORY_SEXUALLY_EXPLICIT",
-        "threshold": "BLOCK_NONE",
-    },
-    {
-        "category": "HARM_CATEGORY_DANGEROUS_CONTENT",
-        "threshold": "BLOCK_NONE",
-    }
-]
 
 def call_gemini(text_input):
-    api_key=os.getenv("GEMINI_API_KEY")
-    genai.configure(api_key=api_key)  # Configure the API key for all subsequent calls.
+    """ Calls Claude AI to generate a concise summary. """
+    
+    os.makedirs('logs', exist_ok=True)
+    
+    api_key = os.getenv("CLAUDE_API_KEY")
+    client = anthropic.Anthropic(api_key=api_key)
 
-    #Convert series or list to string
-    if isinstance(text_input, pd.Series) or isinstance(text_input, list) :
-        text_input = ''.join(text_input)
-   
+    if isinstance(text_input, pd.Series):
+        text_input = ' '.join([str(item) for item in text_input if pd.notna(item)])
+    elif isinstance(text_input, list):
+        text_input = ' '.join([str(item) for item in text_input if item is not None])
+    
+    text_input = str(text_input)
 
-    models = genai.GenerativeModel('gemini-1.5-pro')
-    response = models.generate_content(   "Summarize the text :  "  + text_input,
-                                          generation_config=genai.types.GenerationConfig(temperature=0.0)
-                                     , safety_settings = safety_settings )
-    return(response.text)
+    prompt = f"""
+    Summarize the following text into a concise, meaningful response, without listing step-by-step processing details. 
+    Do NOT include individual sentiment scores or debugging messages. Only return a well-structured summary:
+
+    "{text_input}"
+    """
+
+    response = client.messages.create(
+        model="claude-3-7-sonnet-20250219",
+        max_tokens=8192,
+        messages=[{"role": "user", "content": prompt}]
+    )
+
+    if isinstance(response.content, list) and len(response.content) > 0:
+        summary = response.content[0].text
+    else:
+        summary = str(response.content)
+        
+    return summary

@@ -11,3 +11,6 @@ gemini_generated_code.py
 .vir/
 .vir
 logs/
+app1.py
+app2.py
+claude_code/

@@ -1,5 +1,5 @@
-import google.generativeai as genai
 import os
+import anthropic
 
 safety_settings = [
     {
@@ -26,30 +26,23 @@ safety_settings = [
 
 
 def parse_triple_quotes(in_str, parse_str="```python"):
-    """Extracts code from triple backticks without using regex."""
+    """Extracts code from triple backticks"""
     
-    # Split the input by parse_str
     parts = in_str.split(parse_str)
     if len(parts) < 2:
         print(f"Error: '{parse_str}' not found in input string.")
         return ""
 
-    # Extract the part after "```python"
     code_part = parts[1]
 
-    # Further split by closing triple backticks
     code_part = code_part.split("```")[0]
 
     return code_part.strip()
 
 
-
-
 def nl_python_gemini(user_prompt, seed):
- 
- 
-    api_key=os.getenv("GEMINI_API_KEY")
-    genai.configure(api_key=api_key)  # Configure the API key for all subsequent calls.
+    api_key = os.getenv("CLAUDE_API_KEY")
+    client = anthropic.Anthropic(api_key=api_key)
     print(f'SEED SENT TO PROMPT ==============={seed}')
     prompt =  f"""
         
@@ -88,6 +81,7 @@ def nl_python_gemini(user_prompt, seed):
             use pandas read_csv and pass file to read the file content.
             If the user asks you to plot a graph or "plot" is there in the user_prompt, then only generate graph, use matplotlib,   get the data you need for it, do not use figure function,generate and save the image as graph_{seed}.png.
             Adjust graph so that all values are seen. The image size should be adjusted so that every metrics is visible to the user. 
+
             Use plt.close() at the end to close.
             Put print debug statements after each line to show the progress of the code.
             Do not use print statement but write the output to a new file gencode_{seed}.log instead. 
@@ -98,44 +92,63 @@ def nl_python_gemini(user_prompt, seed):
         
             Only use the output of your code to answer the question.
             You might know the answer without running any code, but you should still run the code to get the answer.Use this to chat with the user regarding customer survey data.
-            Saves logs inside a **'logs/' directory** (create it if it doesn't exist).
-            Before reading the log file, add a **0.5-second delay** to ensure the file is available.
-            Always return the complete summary when user asks for overall view rather than the steps included for generating the summary.
+            Saves logs inside a 'logs/' directory (create it if it doesn't exist).
+            Before reading the log file, add a 0.5-second delay to ensure the file is available.
+            Do not print debug statements.
+            Only log the final summary to `logs/gencode_{seed}.log`, not intermediate steps.
+            Output Rules:  
+          - If a summary is requested, write only the final summarized insights to `logs/gencode_{seed}.log`, rather than graphs.  
+          - Avoid step-by-step process logs.  
+          - For an overall view, return a complete summary rather than the steps taken to generate it. 
+          If the user asks for a summary, DO NOT generate any graphs, visualizations, or matplotlib code.  
+Summarization requests must **ONLY** call `helper_to_gencode.call_gemini` and store the final summarized insights in `logs/gencode_{seed}.log`.  
+
+      For summarization requests:  
+      - **NEVER** include `matplotlib.pyplot`, `plt.savefig()`, or any visualization libraries.  
+      - **ONLY** extract relevant text from the dataset, call `helper_to_gencode.call_gemini()`, and log the final summary.  
+      - **DO NOT** generate, save, or reference any `.png` file.  
+
+      Any request containing "summarize", "summary", "give an overview", or similar **must follow this rule strictly**.
+ 
+            
+            Summarization requests should **not** contain debugging logs or intermediate steps, only the final insights.  
+ 
+
             Wrap the generated code in a function named  generated_code(), create a file  named gemini_generated_code.py and put the function along with code in that file. Do not call the function.
             Call the generated_code function. do not use if __name__ == "__main__"
             
     """
-   
-    #  For any question that asks for summary , use textblob python library but convert series using str.cat to string before using it.
-    #Wrap the generated code in a function named  generated_code(), create a file  named gemini_generated_code.py and put the function along with code in that file
-    # Convert series using str.cat to string before using it.    
-          
-#gemini-pro is not working in v1beta version(deprecated)
-    models = genai.GenerativeModel('gemini-1.5-pro')
-    response = models.generate_content(   prompt + "\n\n Generate python code for : " + user_prompt,
-                                          generation_config=genai.types.GenerationConfig(temperature=0.0)
-                                      , safety_settings = safety_settings)
-    generated_code = response.text
-  ####
-    #print(f'GENERATED CODE >>>\n {generated_code}')
-    # if ( generated_code.find("```python") != -1   ) :
-    #     generated_code=parse_triple_quotes(generated_code,"```python")
-    # else:
-    #     if ( generated_code.find("```") != -1   ) :
-    #         generated_code=parse_triple_quotes(generated_code,"```")
+
+    response = client.messages.create(
+    model="claude-3-7-sonnet-20250219",
+        max_tokens=8192,
+        messages=[{"role": "user", "content": prompt}]
+    )
+
+    generated_code = "".join([msg.text for msg in response.content])
 
     if "```python" in generated_code:
-      generated_code = parse_triple_quotes(generated_code, "```python")
+        generated_code = generated_code.split("```python")[1].split("```")[0].strip()
     elif "```" in generated_code:
-      generated_code = parse_triple_quotes(generated_code, "```")
+        generated_code = generated_code.split("```")[1].split("```")[0].strip()
 
-    
-    #print(f'Cleaned up code >>>>>>>>>>>>>>>>>>> \n{generated_code}')
-    
-    #utility.write_code_to_file(generated_code)
-    #print(f'WRITTEN CODE TO FILE>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>')
+    output_dir = "claude_code"
+    os.makedirs(output_dir, exist_ok=True)
+
+
+    # 🔹 Save the extracted code to a file
+    file_path = os.path.join(output_dir, f'claude_generated_code_{seed}.py')
+    with open(file_path, 'w', encoding='utf-8') as f:
+        f.write(generated_code)
+
+    print(f"Generated code saved to {file_path}")
+
+    try:
+        exec(generated_code, globals())
+    except Exception as e:
+        print(f"Error executing generated code: {e}")
+
     return generated_code
-
   
 
     
