@@ -112,7 +112,7 @@ Summarization requests must **ONLY** call `helper_to_gencode.call_gemini` and st
 
             IMPORTANT DECISION RULES - READ THESE CAREFULLY:
 
-1. IF AND ONLY IF the user asks to "plot" or "generate" something or mentions "graph" or "visualize":
+1. IF AND ONLY IF the user asks to "plot" something or mentions "graph", "chart" or "visualize":
    - Generate matplotlib code
    - Save the output as graph_{seed}.png
    - DO NOT write to logs in this case
