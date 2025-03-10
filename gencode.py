@@ -1,29 +1,6 @@
 import os
+import time
 import anthropic
-
-safety_settings = [
-    {
-        "category": "HARM_CATEGORY_DANGEROUS",
-        "threshold": "BLOCK_NONE",
-    },
-    {
-        "category": "HARM_CATEGORY_HARASSMENT",
-        "threshold": "BLOCK_NONE",
-    },
-    {
-        "category": "HARM_CATEGORY_HATE_SPEECH",
-        "threshold": "BLOCK_NONE",
-    },
-    {
-        "category": "HARM_CATEGORY_SEXUALLY_EXPLICIT",
-        "threshold": "BLOCK_NONE",
-    },
-    {
-        "category": "HARM_CATEGORY_DANGEROUS_CONTENT",
-        "threshold": "BLOCK_NONE",
-    },
-]
-
 
 def parse_triple_quotes(in_str, parse_str="```python"):
     """Extracts code from triple backticks"""
@@ -38,7 +15,6 @@ def parse_triple_quotes(in_str, parse_str="```python"):
     code_part = code_part.split("```")[0]
 
     return code_part.strip()
-
 
 def nl_python_gemini(user_prompt, seed):
     api_key = os.getenv("CLAUDE_API_KEY")
@@ -111,11 +87,79 @@ Summarization requests must **ONLY** call `helper_to_gencode.call_gemini` and st
       Any request containing "summarize", "summary", "give an overview", or similar **must follow this rule strictly**.
  
             
-            Summarization requests should **not** contain debugging logs or intermediate steps, only the final insights.  
+            Summarization requests should **not** contain debugging logs or intermediate steps, only the final insights and the final summary should be saved under logs/directory mandatorily, from there summary should be read.
+
+            Your generated code MUST follow this template structure:
+
+        def generated_code():
+            # 1. First create logs directory
+            os.makedirs('logs', exist_ok=True)
+            
+            # 2. Read the CSV data
+            df = pd.read_csv('service_contracts_survey_data.csv')
+            
+            # 3. Process the data based on user request
+            # [Your processing code here]
+            
+            # 4. Save results to logs directory
+            log_file = f'logs/gencode_{seed}.log'
+            with open(log_file, 'w') as f:
+                f.write(results)
  
 
             Wrap the generated code in a function named  generated_code(), create a file  named gemini_generated_code.py and put the function along with code in that file. Do not call the function.
             Call the generated_code function. do not use if __name__ == "__main__"
+
+            IMPORTANT DECISION RULES - READ THESE CAREFULLY:
+
+1. IF AND ONLY IF the user asks to "plot" or "generate" something or mentions "graph" or "visualize":
+   - Generate matplotlib code
+   - Save the output as graph_{seed}.png
+   - DO NOT write to logs in this case
+
+2. FOR ALL OTHER QUERIES, INCLUDING SUMMARIES:
+   - DO NOT generate any matplotlib code or plots
+   - ALWAYS create the logs directory with: os.makedirs('logs', exist_ok=True)
+   - ALWAYS save output ONLY to logs/gencode_{seed}.log
+
+These rules are mutually exclusive - never mix graphing and logging to files in the same response.
+
+For summary requests or any non-visualization query:
+- import os
+- os.makedirs('logs', exist_ok=True)  # This line is mandatory
+- process data as needed
+- write results ONLY to logs/gencode_{seed}.log
+- NEVER include plt, matplotlib, or any visualization code
+
+Your code must follow this exact structure:
+
+def generated_code():
+    import os
+    import pandas as pd
+    from textblob import TextBlob
+    
+    # Always create logs directory first
+    os.makedirs('logs', exist_ok=True)
+    
+    # Read the data
+    df = pd.read_csv('service_contracts_survey_data.csv')
+    
+    # Determine if this is a plotting request or a summary/analysis request
+    if "plot" in user_prompt or "graph" in user_prompt or "visualize" in user_prompt:
+        # PLOTTING CODE PATH
+        import matplotlib.pyplot as plt
+        # [Your plotting code here]
+        plt.savefig(f'graph_{seed}.png')
+        plt.close()
+    else:
+        # NON-PLOTTING CODE PATH - ALWAYS WRITE TO LOG FILE
+        # [Your analysis code here]
+        result = "Your analysis results here"
+        
+        # Write to log file - THIS IS MANDATORY FOR NON-PLOTTING REQUESTS
+        log_file = f'logs/gencode_{seed}.log'
+        with open(log_file, 'w') as f:
+            f.write(result)
             
     """
 
@@ -135,7 +179,6 @@ Summarization requests must **ONLY** call `helper_to_gencode.call_gemini` and st
     output_dir = "claude_code"
     os.makedirs(output_dir, exist_ok=True)
 
-
     # 🔹 Save the extracted code to a file
     file_path = os.path.join(output_dir, f'claude_generated_code_{seed}.py')
     with open(file_path, 'w', encoding='utf-8') as f:
@@ -149,6 +192,3 @@ Summarization requests must **ONLY** call `helper_to_gencode.call_gemini` and st
         print(f"Error executing generated code: {e}")
 
     return generated_code
-  
-
-    

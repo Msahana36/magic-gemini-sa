@@ -18,11 +18,10 @@ def call_gemini(text_input):
     text_input = str(text_input)
 
     prompt = f"""
-    Summarize the following text into a concise, meaningful response, without listing step-by-step processing details. 
-    Do NOT include individual sentiment scores or debugging messages. Only return a well-structured summary:
+ Summarize the text :  
+"{text_input}"
+"""
 
-    "{text_input}"
-    """
 
     response = client.messages.create(
         model="claude-3-7-sonnet-20250219",
